@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Tracker — Emily Pitts</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f7f4;--surface:#ffffff;--surface2:#f0efe9;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.2);
+  --text:#1a1a18;--text2:#6b6b65;--text3:#a8a89f;
+  --blue:#2563eb;--blue-bg:#eff6ff;--blue-text:#1d4ed8;
+  --amber-bg:#fef3c7;--amber-text:#92400e;
+  --green-bg:#dcfce7;--green-text:#166534;
+  --gray-bg:#f3f4f6;--gray-text:#4b5563;
+  --orange-bg:#faeeda;--orange-text:#633806;
+  --red-bg:#fee2e2;--red-text:#991b1b;
+  --r:8px;--rl:12px
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1a1a18;--surface:#242422;--surface2:#2e2e2b;
+    --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
+    --text:#f0efe9;--text2:#a8a89f;--text3:#6b6b65;
+    --blue-bg:#1e3a5f;--blue-text:#93c5fd;
+    --amber-bg:#451a03;--amber-text:#fcd34d;
+    --green-bg:#052e16;--green-text:#86efac;
+    --gray-bg:#374151;--gray-text:#d1d5db;
+    --orange-bg:#412402;--orange-text:#fac775;
+    --red-bg:#450a0a;--red-text:#fca5a5
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* Gate */
+#gate{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.gate-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--rl);padding:36px;max-width:380px;width:100%}
+.gate-logo{font-size:11px;letter-spacing:.08em;color:var(--text3);text-transform:uppercase;margin-bottom:20px}
+.gate-title{font-size:20px;font-weight:500;margin-bottom:4px}
+.gate-sub{font-size:13px;color:var(--text2);margin-bottom:28px}
+.gate-card input[type=password]{width:100%;padding:10px 12px;border:0.5px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-size:14px;margin-bottom:10px;font-family:inherit}
+.gate-card input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,0.1)}
+.gate-btn{width:100%;padding:10px;background:var(--text);color:var(--bg);border:none;border-radius:var(--r);font-size:14px;cursor:pointer;font-family:inherit}
+.gate-btn:hover{opacity:0.85}
+.gate-err{font-size:12px;color:var(--red-text);margin-top:8px;display:none}
+
+/* App shell */
+#app{display:none;max-width:900px;margin:0 auto;padding:24px 16px 48px}
+
+/* Header */
+.app-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.app-title{font-size:15px;font-weight:500}
+.app-title span{color:var(--text2);font-weight:400}
+.hdr-btns{display:flex;gap:8px}
+.btn{font-size:12px;padding:6px 12px;border-radius:var(--r);border:0.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-family:inherit}
+.btn:hover{background:var(--surface2)}
+.btn-primary{background:var(--text);color:var(--bg);border-color:var(--text)}
+.btn-primary:hover{opacity:0.85}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.stat{background:var(--surface2);border-radius:var(--r);padding:10px 14px}
+.stat-n{font-size:22px;font-weight:500}
+.stat-l{font-size:11px;color:var(--text2);margin-top:2px}
+
+/* Filters */
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center}
+.chip{font-size:11px;padding:4px 11px;border-radius:99px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit}
+.chip:hover{background:var(--surface2)}
+.chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.div{width:1px;height:16px;background:var(--border2);flex-shrink:0}
+
+/* Cards */
+.cards{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;transition:border-color .15s}
+.card:hover{border-color:var(--border2)}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px}
+.card-title{font-size:13px;font-weight:500;line-height:1.4}
+.card-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.card-sub{font-size:12px;color:var(--text2);margin-bottom:8px}
+.badges{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.badge{font-size:10px;padding:2px 8px;border-radius:99px;border:0.5px solid;font-weight:500}
+.b-found{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-text)}
+.b-review{background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber-text)}
+.b-applied,.b-interviewing,.b-offer{background:var(--green-bg);color:var(--green-text);border-color:var(--green-text)}
+.b-pass{background:var(--gray-bg);color:var(--gray-text);border-color:var(--gray-text)}
+.b-priority{background:var(--orange-bg);color:var(--orange-text);border-color:#ef9f27}
+.b-tag{background:var(--surface2);color:var(--text2);border-color:var(--border2)}
+.card-meta{font-size:11px;color:var(--text3);margin-bottom:6px}
+.card-url{font-size:11px;color:var(--blue);text-decoration:none;word-break:break-all;display:block;margin-bottom:8px}
+.card-url:hover{text-decoration:underline}
+.card-notes{font-size:11px;color:var(--text2);line-height:1.65;border-top:0.5px solid var(--border);padding-top:8px}
+select{font-size:11px;padding:4px 6px;border-radius:var(--r);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit}
+.edit-link{font-size:11px;color:var(--text3);cursor:pointer;text-decoration:none;border:none;background:none;font-family:inherit}
+.edit-link:hover{color:var(--text)}
+
+/* Status */
+.loading{text-align:center;padding:48px;color:var(--text2);font-size:14px}
+.empty{text-align:center;padding:48px;color:var(--text3);font-size:13px}
+.saving{font-size:11px;color:var(--text3);position:fixed;bottom:16px;right:16px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r);padding:6px 12px;opacity:0;transition:opacity .2s}
+.saving.show{opacity:1}
+
+/* Modal */
+#modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+#modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--rl);padding:24px;max-width:580px;width:100%;margin:auto}
+.modal h3{font-size:15px;font-weight:500;margin-bottom:18px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit}
+.field textarea{min-height:90px;resize:vertical}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--blue)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field-checks{display:flex;gap:20px;flex-wrap:wrap;margin-top:4px}
+.field-check{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.field-check input{width:auto;cursor:pointer}
+.modal-footer{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:0.5px solid var(--border)}
+.modal-footer-left{font-size:12px;color:var(--red-text);cursor:pointer;border:none;background:none;font-family:inherit}
+.modal-footer-left:hover{text-decoration:underline}
+.modal-btns{display:flex;gap:8px}
+</style>
+</head>
+<body>
+
+<!-- Password gate -->
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-logo">Job Search 2026</div>
+    <div class="gate-title">Welcome back, Emily</div>
+    <div class="gate-sub">Your job tracker is ready.</div>
+    <input type="password" id="pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()" autofocus />
+    <button class="gate-btn" onclick="checkPw()">Continue</button>
+    <div class="gate-err" id="pw-err">Incorrect password. Try again.</div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app">
+  <div class="app-header">
+    <div class="app-title">Job Tracker <span>— Emily Pitts, MSN FNP-BC</span></div>
+    <div class="hdr-btns">
+      <button class="btn" onclick="exportJSON()">Export JSON</button>
+      <button class="btn btn-primary" onclick="openModal(null)">+ Add role</button>
+    </div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="filters" id="filters"></div>
+  <div class="cards" id="cards"><div class="loading">Loading roles…</div></div>
+</div>
+
+<!-- Add/Edit modal -->
+<div id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3 id="modal-title">Add role</h3>
+    <div class="field-row">
+      <div class="field"><label>Title</label><input id="f-title" type="text" placeholder="NP – Palliative Care" /></div>
+      <div class="field"><label>Employer</label><input id="f-employer" type="text" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Market</label><input id="f-market" type="text" placeholder="Portsmouth, NH" /></div>
+      <div class="field"><label>Setting</label><input id="f-setting" type="text" placeholder="Outpatient" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Salary</label><input id="f-salary" type="text" placeholder="$120k–$145k" /></div>
+      <div class="field"><label>Status</label>
+        <select id="f-status">
+          <option>Found</option><option>Reviewing</option><option>Applied</option>
+          <option>Interviewing</option><option>Offer</option><option>Pass</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>URL</label><input id="f-url" type="text" placeholder="https://…" /></div>
+    <div class="field"><label>Source</label><input id="f-source" type="text" placeholder="LinkedIn, Indeed, direct research…" /></div>
+    <div class="field"><label>Notes</label><textarea id="f-notes" placeholder="Recruiter contact, setting details, culture notes, action items…"></textarea></div>
+    <div class="field">
+      <div class="field-checks">
+        <label class="field-check"><input type="checkbox" id="f-bioethics" /> Bioethics role</label>
+        <label class="field-check"><input type="checkbox" id="f-mountain" /> Mountain market</label>
+        <label class="field-check"><input type="checkbox" id="f-priority" /> Priority</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-footer-left" id="delete-btn" onclick="deleteRole()" style="display:none">Delete role</button>
+      <span></span>
+      <div class="modal-btns">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveModal()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="saving" id="saving">Saving…</div>
+
+<script>
+const SUPABASE_URL = 'https://bowhwboefpoukdjaxwvz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__BcwMv2tL8xYw7q18uhOKA_ARrTwEra';
+const PASSWORD = 'pitts2026';
+const TABLE = 'jobs';
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STATUS_ORDER = ['Found','Reviewing','Applied','Interviewing','Offer','Pass'];
+const BADGE = {Found:'b-found',Reviewing:'b-review',Applied:'b-applied',Interviewing:'b-interviewing',Offer:'b-offer',Pass:'b-pass'};
+
+let jobs = [];
+let filterMarket = 'All';
+let filterStatus = 'All';
+let filterBio = false;
+let filterMtn = false;
+let editingId = null;
+
+const SEED = [
+  {id:1,title:"NP/PA – Palliative Care",employer:"Tahoe Forest Health System",market:"Tahoe/Truckee, CA",setting:"Hospital + Outpatient",salary:"$85.50/hr (part-time listed)",status:"Found",url:"https://www.glassdoor.com/job-listing/nurse-practitioner-physician-assistant-palliative-care-full-time-tahoe-forest-JV_IC1147571_KO0,64_KE65,84.htm?jl=2803462529",source:"ZipRecruiter/LinkedIn",notes:"LIVE ACTIVE POSTING — most direct geographic + specialty match in entire search. Mission-driven community health system, UCHealth-comparable culture. Dream geography. Rate may need negotiation to FT/FTE equivalent. CA license application in process — flag timing with employer. Apply or direct outreach ASAP — most time-sensitive posting found. Culture note: mixed Glassdoor reviews — beautiful setting, good pay, some upper mgmt concerns flagged. Community hospital feel, not corporate.",bioethics:false,mountain:true,priority:true},
+  {id:2,title:"NP/PA – Supportive & Palliative Care (Per Diem)",employer:"Wentworth-Douglass Hospital (MGB)",market:"Portsmouth, NH",setting:"Outpatient + Hospital + Virtual",salary:"TBD – MGB network",status:"Reviewing",url:"https://massgeneralbrigham.wd1.myworkdayjobs.com/en-US/MGBExternal",source:"Teal / MGB Workday",notes:"CONFIRMED ACTIVE POSTING (per diem). Outpatient + inpatient + virtual. M–F 7am–3:30pm only — ideal for parents of toddlers. Dover NH + Portsmouth campus. Part of Mass General Brigham / MGH network — Magnet-recognized. NPs work autonomously to top of license. Advanced care planning emphasis — strong fit for Emily's profile. Apply via MGB Workday careers portal. Also check for FT openings — per diem may upgrade. Wentworth Health Partners recently rebranded as MGB.",bioethics:false,mountain:false,priority:true},
+  {id:3,title:"Hospice & Palliative Care NP",employer:"Beth Israel Lahey Health / Exeter Hospital",market:"Portsmouth, NH",setting:"VERIFY — may include home visits",salary:"TBD – BILH portal",status:"Reviewing",url:"https://jobs.bilh.org/category/hospice-and-palliative-care-jobs/169/8550256/1",source:"Indeed / BILH Careers",notes:"BILH actively hiring palliative NP roles. MUST VERIFY whether role is clinic-based or home-visit before applying — BILH at Home is home-visit model; Exeter Hospital outpatient side is the target. Requires min 5 yrs nursing experience — Emily qualifies. Location: Exeter NH, ~20 min from Portsmouth. Contact: BILHTalentAcquisition@bilh.org",bioethics:false,mountain:false,priority:false},
+  {id:4,title:"Palliative Care NP – Kennebunk ME / Dover NH",employer:"Impact Health PC",market:"Portsmouth, NH",setting:"VERIFY — likely SNF/facility rounds",salary:"$115k–$200k + bonus, M–F no nights",status:"Reviewing",url:"https://www.ziprecruiter.com/c/Constellation-Health-Services/Job/Palliative-Nurse-Practitioner-Kennebunk,-ME-&-Dover,-NH-(Must-be-licensed-in-ME-&-NH)/-in-North-Berwick,ME?jid=336a389870b55c89",source:"ZipRecruiter",notes:"Strong comp but likely SNF/facility rounds model — not ideal given Emily's no-facility-visit preference. Requires active NH + ME license, both in process. Verify setting before spending time on application. Low priority unless setting confirmed as clinic-based.",bioethics:false,mountain:false,priority:false},
+  {id:5,title:"NP/PA – Palliative Care & Geriatric Medicine",employer:"Massachusetts General Hospital (MGB)",market:"Boston, MA",setting:"Hospital (inpatient)",salary:"TBD – MGB scale",status:"Found",url:"https://massgeneralbrigham.wd1.myworkdayjobs.com/en-US/MGBExternal/job/NP-or-PA--Palliative-Care---Geriatric-Medicine--MGH_RQ4050445",source:"MGB Careers / Indeed",notes:"ACTIVE at MGH Boston. Inpatient consultation + counseling + teaching across advanced illness settings including ED. MGB is Emily's academic/bioethics dream employer network. Boston = 70mi from Portsmouth — commutable or basis for MA relocation. HMS bioethics connection makes this exceptionally well-matched. Apply via MGB Workday portal.",bioethics:true,mountain:false,priority:true},
+  {id:6,title:"Palliative Care NP – Mountain Region",employer:"MaineHealth",market:"Conway/North Conway, NH",setting:"Hospital + Outpatient (multi-site)",salary:"TBD – MaineHealth scale",status:"Found",url:"https://www.careersatmainehealth.org/jobs/15397446-nurse-practitioner-h",source:"MaineHealth Careers (direct)",notes:"TOP PRIORITY — best all-around fit in entire search. ACTIVE POSTING. Covers North Conway NH + Farmington ME + Norway ME — inpatient + outpatient across all three sites. Non-profit integrated system, Forbes Best Large Employer 2022. Mountain Region = White Mountains / Western ME — dream geography. Requires active ME + NH NP license (both in process). DIRECT RECRUITER: Donna Lafean, MaineHealth APP Recruiter — dlafean@mainehealth.org. Email CV immediately.",bioethics:false,mountain:true,priority:true},
+  {id:7,title:"NP/PA – Palliative Medicine (Part Time, 24hrs)",employer:"MaineHealth / Maine Medical Center",market:"Portland, ME",setting:"Hospital + Outpatient (academic)",salary:"TBD – MaineHealth scale",status:"Found",url:"https://www.careersatmainehealth.org",source:"LinkedIn / MaineHealth Careers",notes:"ACTIVE at MaineHealth's flagship Portland academic hospital. 16-member interdisciplinary team — physicians, APPs, social workers, chaplains. Inpatient + ambulatory specialty palliative care. Part-time 24hrs. Same system + same recruiter as Mountain Region role. Bundle into one outreach to Donna Lafean (dlafean@mainehealth.org) — express interest in both and let the system place her where best fit.",bioethics:false,mountain:false,priority:false},
+  {id:8,title:"Open Rank Clinical Practice Faculty – Bioethics & Palliative Care",employer:"University of Washington / Seattle Children's",market:"Seattle, WA",setting:"Academic / Hospital",salary:"TBD – UW faculty scale",status:"Found",url:"https://ap.washington.edu/ahr/academic-jobs/",source:"UW Academic Jobs (Position 163477)",notes:"BIOETHICS UNICORN ROLE — open until filled. UW Dept of Pediatrics, Division of Bioethics & Palliative Care — only division in the country to formally combine both fields. Clinical Bioethics Consultation Service + Palliative Care Service at Seattle Children's. Treuman Katz Center is national resource for pediatric bioethics. IMPORTANT FLAG: pediatric focus — Emily's background is adult/FNP. 'Open rank clinical practice faculty' may accommodate — requires close review of full posting before applying. WA license in process.",bioethics:true,mountain:false,priority:true},
+  {id:9,title:"Clinical Assistant Professor – Palliative Care, Family Medicine",employer:"University of Washington",market:"Seattle, WA",setting:"Academic / Outpatient",salary:"TBD – UW faculty scale",status:"Found",url:"https://ap.washington.edu/ahr/academic-jobs/",source:"UW Academic Jobs (Position 169567)",notes:"ACTIVE since Sep 2025, open until filled. Family Medicine / Palliative Care faculty track — cleaner FNP fit than pediatric bioethics position. UW Cambia Palliative Care Center of Excellence nationally recognized. Core faculty explicitly includes advanced nurse practitioners. HMS bioethics credential is a strong differentiator for academic track. WA license in process. Apply alongside UW bioethics role.",bioethics:true,mountain:false,priority:true},
+  {id:10,title:"Nurse Practitioner – Palliative Care",employer:"Providence Swedish",market:"Seattle, WA",setting:"Hospital + Outpatient",salary:"~$125k–$175k (Seattle NP market range)",status:"Found",url:"https://providenceswedish.jobs/seattle-wa/nurse-practitioner-palliative-care/940CEB8D95F94592B0691D78752F7E02/job/",source:"Providence Swedish Careers",notes:"ACTIVE. Providence/Swedish is one of Seattle's largest health systems — mission-driven Catholic non-profit. Good culture reputation for APPs. Outpatient preferred per listing. Strong baseline option if UW academic roles don't pan out. WA license required (in process).",bioethics:false,mountain:false,priority:false},
+  {id:11,title:"Palliative Care APP (ARNP or PA-C)",employer:"Virginia Mason Medical Center",market:"Seattle, WA",setting:"Outpatient",salary:"TBD",status:"Found",url:"https://www.virginiamason.org/careers",source:"Indeed",notes:"ACTIVE. Virginia Mason is independent, physician-led — strong reputation for quality and APP autonomy. Outpatient focus — good fit for Emily's setting preference. Minimum 1 yr palliative experience preferred. Apply via Virginia Mason careers portal directly.",bioethics:false,mountain:false,priority:false},
+  {id:12,title:"Palliative Care Nurse Practitioner",employer:"MultiCare Health System",market:"Seattle, WA",setting:"Outpatient",salary:"$124,248–$168,521",status:"Found",url:"https://www.multicare.org/careers",source:"ZipRecruiter",notes:"ACTIVE. MultiCare is large regional non-profit. Salary $124k–$168k — above Emily's floor and approaching 75th percentile benchmark (~$158k). Best published comp range of any Seattle clinical NP role found. Well-established palliative team. Verify current posting status on MultiCare careers portal directly.",bioethics:false,mountain:false,priority:false},
+  {id:13,title:"Palliative Care NP – Seacoast NH (Per Diem/PRN)",employer:"Portsmouth Regional Hospital (HCA)",market:"Portsmouth, NH",setting:"Hospital",salary:"HCA scale",status:"Found",url:"https://careers.hcahealthcare.com/pages/portsmouth-regional-hospital",source:"Direct research",notes:"HCA-owned — deprioritize per Emily's preference (similar corporate dynamics to Optum). However: Press Ganey Pinnacle of Excellence Award 2025 — top 5% nationally for patient experience. Level II Trauma, right in Portsmouth. Keep as last-resort Portsmouth option but do not prioritize over WDH/MGB.",bioethics:false,mountain:false,priority:false}
+];
+
+// --- Auth ---
+function checkPw() {
+  if(document.getElementById('pw-input').value === PASSWORD) {
+    sessionStorage.setItem('tracker_auth','1');
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadJobs();
+  } else {
+    document.getElementById('pw-err').style.display = 'block';
+  }
+}
+if(sessionStorage.getItem('tracker_auth')==='1') {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadJobs();
+}
+
+// --- Data ---
+async function loadJobs() {
+  try {
+    const {data,error} = await db.from(TABLE).select('*').order('id');
+    if(error) throw error;
+    if(!data||data.length===0) {
+      await db.from(TABLE).insert(SEED);
+      jobs = SEED;
+    } else {
+      jobs = data;
+    }
+  } catch(e) {
+    jobs = SEED;
+  }
+  render();
+}
+
+function showSaving() {
+  const el = document.getElementById('saving');
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+// --- Render ---
+function markets() {
+  const s = new Set();
+  jobs.forEach(j=>s.add(j.market));
+  return [...s];
+}
+
+function render() {
+  const visible = jobs.filter(j=>{
+    if(filterMarket!=='All'&&j.market!==filterMarket) return false;
+    if(filterStatus!=='All'&&j.status!==filterStatus) return false;
+    if(filterBio&&!j.bioethics) return false;
+    if(filterMtn&&!j.mountain) return false;
+    return true;
+  });
+
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-n">${jobs.length}</div><div class="stat-l">roles tracked</div></div>
+    <div class="stat"><div class="stat-n">${jobs.filter(j=>['Applied','Interviewing','Offer'].includes(j.status)).length}</div><div class="stat-l">in pipeline</div></div>
+    <div class="stat"><div class="stat-n">${jobs.filter(j=>j.bioethics).length}</div><div class="stat-l">bioethics roles</div></div>
+    <div class="stat"><div class="stat-n">${jobs.filter(j=>j.mountain).length}</div><div class="stat-l">mountain markets</div></div>
+  `;
+
+  const mktList=['All',...markets()];
+  document.getElementById('filters').innerHTML=
+    mktList.map(m=>`<button class="chip ${filterMarket===m?'on':''}" onclick="setMarket(${JSON.stringify(m)})">${m}</button>`).join('')+
+    '<span class="div"></span>'+
+    ['All',...STATUS_ORDER].map(s=>`<button class="chip ${filterStatus===s?'on':''}" onclick="setStatus('${s}')">${s}</button>`).join('')+
+    '<span class="div"></span>'+
+    `<button class="chip ${filterBio?'on':''}" onclick="toggleBio()">Bioethics</button>`+
+    `<button class="chip ${filterMtn?'on':''}" onclick="toggleMtn()">Mountain</button>`;
+
+  if(!visible.length){
+    document.getElementById('cards').innerHTML='<div class="empty">No roles match current filters.</div>';
+    return;
+  }
+
+  document.getElementById('cards').innerHTML=visible.map(j=>`
+    <div class="card">
+      <div class="card-top">
+        <div class="card-title">${j.priority?'⭐ ':''}${j.title}</div>
+        <div class="card-actions">
+          <select onchange="updateStatus(${j.id},this.value)">
+            ${STATUS_ORDER.map(s=>`<option ${j.status===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+          <button class="edit-link" onclick="openModal(${j.id})">Edit</button>
+        </div>
+      </div>
+      <div class="card-sub">${j.employer} · ${j.market} · ${j.setting}</div>
+      <div class="badges">
+        <span class="badge ${BADGE[j.status]||'b-found'}">${j.status}</span>
+        ${j.priority?'<span class="badge b-priority">Priority</span>':''}
+        ${j.bioethics?'<span class="badge b-tag">Bioethics</span>':''}
+        ${j.mountain?'<span class="badge b-tag">Mountain</span>':''}
+        ${j.salary&&j.salary!=='TBD'?`<span class="badge b-tag">${j.salary}</span>`:''}
+      </div>
+      <div class="card-meta">Source: ${j.source||'—'}</div>
+      ${j.url?`<a class="card-url" href="${j.url}" target="_blank">${j.url.length>85?j.url.substring(0,85)+'…':j.url}</a>`:''}
+      <div class="card-notes">${j.notes||'—'}</div>
+    </div>
+  `).join('');
+}
+
+function setMarket(m){filterMarket=m;render()}
+function setStatus(s){filterStatus=s;render()}
+function toggleBio(){filterBio=!filterBio;render()}
+function toggleMtn(){filterMtn=!filterMtn;render()}
+
+async function updateStatus(id,val) {
+  jobs=jobs.map(j=>j.id===id?{...j,status:val}:j);
+  render();
+  showSaving();
+  try { await db.from(TABLE).update({status:val}).eq('id',id); } catch(e){}
+}
+
+// --- Modal ---
+function openModal(id) {
+  editingId=id;
+  const j=id?jobs.find(x=>x.id===id):null;
+  document.getElementById('modal-title').textContent=id?'Edit role':'Add role';
+  document.getElementById('f-title').value=j?.title||'';
+  document.getElementById('f-employer').value=j?.employer||'';
+  document.getElementById('f-market').value=j?.market||'';
+  document.getElementById('f-setting').value=j?.setting||'';
+  document.getElementById('f-salary').value=j?.salary||'';
+  document.getElementById('f-status').value=j?.status||'Found';
+  document.getElementById('f-url').value=j?.url||'';
+  document.getElementById('f-source').value=j?.source||'';
+  document.getElementById('f-notes').value=j?.notes||'';
+  document.getElementById('f-bioethics').checked=j?.bioethics||false;
+  document.getElementById('f-mountain').checked=j?.mountain||false;
+  document.getElementById('f-priority').checked=j?.priority||false;
+  document.getElementById('delete-btn').style.display=id?'block':'none';
+  document.getElementById('modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('f-title').focus(),50);
+}
+
+function closeModal() {
+  document.getElementById('modal-bg').classList.remove('open');
+  editingId=null;
+}
+
+async function saveModal() {
+  const record={
+    title:document.getElementById('f-title').value.trim(),
+    employer:document.getElementById('f-employer').value.trim(),
+    market:document.getElementById('f-market').value.trim(),
+    setting:document.getElementById('f-setting').value.trim(),
+    salary:document.getElementById('f-salary').value.trim(),
+    status:document.getElementById('f-status').value,
+    url:document.getElementById('f-url').value.trim(),
+    source:document.getElementById('f-source').value.trim(),
+    notes:document.getElementById('f-notes').value.trim(),
+    bioethics:document.getElementById('f-bioethics').checked,
+    mountain:document.getElementById('f-mountain').checked,
+    priority:document.getElementById('f-priority').checked
+  };
+  if(editingId) {
+    record.id=editingId;
+    jobs=jobs.map(j=>j.id===editingId?{...j,...record}:j);
+    try { await db.from(TABLE).update(record).eq('id',editingId); } catch(e){}
+  } else {
+    record.id=Date.now();
+    record.date_added=new Date().toISOString();
+    jobs=[...jobs,record];
+    try { await db.from(TABLE).insert(record); } catch(e){}
+  }
+  showSaving();
+  closeModal();
+  render();
+}
+
+async function deleteRole() {
+  if(!editingId||!confirm('Delete this role from the tracker?')) return;
+  jobs=jobs.filter(j=>j.id!==editingId);
+  try { await db.from(TABLE).delete().eq('id',editingId); } catch(e){}
+  showSaving();
+  closeModal();
+  render();
+}
+
+// --- Export ---
+function exportJSON() {
+  const blob=new Blob([JSON.stringify({
+    candidate:'Emily Pitts, MSN FNP-BC',
+    exportedAt:new Date().toISOString(),
+    jobs,
+    profile:{
+      specialty:'Palliative Care NP',
+      credential:'FNP-BC, HMS Bioethics Fellow, Harvard Masters Bioethics (2027-28)',
+      currentRole:'Palliative Care NP, UCHealth (0.8 FTE)',
+      compFloor_FT:115000,compFloor_08:92000,
+      markets:['Portsmouth NH','Tahoe/Truckee CA','Conway/North Conway NH','Portland ME','Boston MA','Seattle WA'],
+      licensesPending:['NH','ME','CA','WA'],
+      recruiterContact:'Donna Lafean, MaineHealth — dlafean@mainehealth.org',
+      harvardProgram:'Fully remote, 2x/year on-site. Must be disclosed in offer negotiation.'
+    }
+  },null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`emily_pitts_tracker_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+</script>
+</body>
+</html>
