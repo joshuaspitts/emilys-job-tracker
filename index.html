@@ -294,7 +294,7 @@ function render() {
 
   const mktList=['All',...markets()];
   document.getElementById('filters').innerHTML=
-    mktList.map(m=>`<button class="chip ${filterMarket===m?'on':''}" onclick="setMarket(${JSON.stringify(m)})">${m}</button>`).join('')+
+    mktList.map(m=>`<button class="chip ${filterMarket===m?'on':''}" onclick="setMarket('${m.replace(/'/g,"&#39;")}')">${m}</button>`).join('')+
     '<span class="div"></span>'+
     ['All',...STATUS_ORDER].map(s=>`<button class="chip ${filterStatus===s?'on':''}" onclick="setStatus('${s}')">${s}</button>`).join('')+
     '<span class="div"></span>'+
