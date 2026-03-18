@@ -92,6 +92,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .card-url{font-size:11px;color:var(--blue);text-decoration:none;word-break:break-all;display:block;margin-bottom:8px}
 .card-url:hover{text-decoration:underline}
 .card-notes{font-size:11px;color:var(--text2);line-height:1.65;border-top:0.5px solid var(--border);padding-top:8px}
+.verified{font-size:10px;font-weight:500;padding:1px 6px;border-radius:99px;border:0.5px solid}
+.v-fresh{background:#e6f4ea;color:#1e6e38;border-color:#1e6e38}
+.v-stale{background:#fff8e1;color:#a16207;border-color:#a16207}
+.v-old{background:#fde8e8;color:#991b1b;border-color:#991b1b}
+.v-unknown{background:var(--gray-bg);color:var(--gray-text);border-color:var(--gray-text)}
+.portal-url{color:var(--text3);font-style:italic}
 select{font-size:11px;padding:4px 6px;border-radius:var(--r);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit}
 .edit-link{font-size:11px;color:var(--text3);cursor:pointer;text-decoration:none;border:none;background:none;font-family:inherit}
 .edit-link:hover{color:var(--text)}
@@ -166,12 +172,13 @@ select{font-size:11px;padding:4px 6px;border-radius:var(--r);border:0.5px solid 
       <div class="field"><label>Salary</label><input id="f-salary" type="text" placeholder="$120k–$145k" /></div>
       <div class="field"><label>Status</label>
         <select id="f-status">
-          <option>Found</option><option>Reviewing</option><option>Applied</option>
-          <option>Interviewing</option><option>Offer</option><option>Pass</option>
+          <option>Found</option><option>Reviewing</option><option>Applied</option><option>Interviewing</option><option>Offer</option><option>Pass</option><option>Expired</option><option>Cold Outreach</option>
         </select>
       </div>
     </div>
-    <div class="field"><label>URL</label><input id="f-url" type="text" placeholder="https://…" /></div>
+    <div class="field"><label>Posting URL</label><input id="f-url" type="text" placeholder="https://…" /></div>
+    <div class="field"><label>Careers Portal URL</label><input id="f-portal" type="text" placeholder="https://careers.employer.com (stable fallback)" /></div>
+    <div class="field"><label>Last Verified</label><input id="f-verified" type="date" /></div>
     <div class="field"><label>Source</label><input id="f-source" type="text" placeholder="LinkedIn, Indeed, direct research…" /></div>
     <div class="field"><label>Notes</label><textarea id="f-notes" placeholder="Recruiter contact, setting details, culture notes, action items…"></textarea></div>
     <div class="field">
@@ -203,8 +210,8 @@ const TABLE = 'jobs';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const STATUS_ORDER = ['Found','Reviewing','Applied','Interviewing','Offer','Pass'];
-const BADGE = {Found:'b-found',Reviewing:'b-review',Applied:'b-applied',Interviewing:'b-interviewing',Offer:'b-offer',Pass:'b-pass'};
+const STATUS_ORDER = ['Found','Reviewing','Applied','Interviewing','Offer','Pass','Expired','Cold Outreach'];
+const BADGE = {Found:'b-found',Reviewing:'b-review',Applied:'b-applied',Interviewing:'b-interviewing',Offer:'b-offer',Pass:'b-pass',Expired:'b-pass','Cold Outreach':'b-pass'};
 
 let jobs = [];
 let filterMarket = 'All';
@@ -270,6 +277,14 @@ function showSaving() {
 }
 
 // --- Render ---
+function verifiedClass(dateStr) {
+  if(!dateStr) return 'v-unknown';
+  const days = (new Date() - new Date(dateStr)) / 86400000;
+  if(days <= 14) return 'v-fresh';
+  if(days <= 45) return 'v-stale';
+  return 'v-old';
+}
+
 function markets() {
   const s = new Set();
   jobs.forEach(j=>s.add(j.market));
@@ -325,8 +340,9 @@ function render() {
         ${j.mountain?'<span class="badge b-tag">Mountain</span>':''}
         ${j.salary&&j.salary!=='TBD'?`<span class="badge b-tag">${j.salary}</span>`:''}
       </div>
-      <div class="card-meta">Source: ${j.source||'—'}</div>
-      ${j.url?`<a class="card-url" href="${j.url}" target="_blank">${j.url.length>85?j.url.substring(0,85)+'…':j.url}</a>`:''}
+      <div class="card-meta">Source: ${j.source||'—'}${j.last_verified?` · <span class="verified ${verifiedClass(j.last_verified)}">✓ verified ${j.last_verified}</span>`:' · <span class="verified v-unknown">unverified</span>'}</div>
+      ${j.url?`<a class="card-url" href="${j.url}" target="_blank" title="Direct posting link">${j.url.length>85?j.url.substring(0,85)+'…':j.url}</a>`:''}
+      ${j.careers_portal_url?`<a class="card-url portal-url" href="${j.careers_portal_url}" target="_blank" title="Stable careers portal — use if posting link is broken">🏢 Careers portal →</a>`:''}
       <div class="card-notes">${j.notes||'—'}</div>
     </div>
   `).join('');
@@ -356,6 +372,8 @@ function openModal(id) {
   document.getElementById('f-salary').value=j?.salary||'';
   document.getElementById('f-status').value=j?.status||'Found';
   document.getElementById('f-url').value=j?.url||'';
+  document.getElementById('f-portal').value=j?.careers_portal_url||'';
+  document.getElementById('f-verified').value=j?.last_verified||'';
   document.getElementById('f-source').value=j?.source||'';
   document.getElementById('f-notes').value=j?.notes||'';
   document.getElementById('f-bioethics').checked=j?.bioethics||false;
@@ -380,6 +398,8 @@ async function saveModal() {
     salary:document.getElementById('f-salary').value.trim(),
     status:document.getElementById('f-status').value,
     url:document.getElementById('f-url').value.trim(),
+    careers_portal_url:document.getElementById('f-portal').value.trim(),
+    last_verified:document.getElementById('f-verified').value||null,
     source:document.getElementById('f-source').value.trim(),
     notes:document.getElementById('f-notes').value.trim(),
     bioethics:document.getElementById('f-bioethics').checked,
